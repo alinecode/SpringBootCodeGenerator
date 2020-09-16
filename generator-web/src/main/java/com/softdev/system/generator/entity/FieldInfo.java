@@ -14,5 +14,8 @@ public class FieldInfo {
     private String fieldName;
     private String fieldClass;
     private String fieldComment;
+    private String oracleFieldType;
+    private String mysqlFieldType;
+    private String sqlservFieldType;
 
 }

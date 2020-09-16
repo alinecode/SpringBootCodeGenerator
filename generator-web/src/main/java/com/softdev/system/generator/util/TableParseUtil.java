@@ -43,6 +43,9 @@ public class TableParseUtil {
         tableSql = tableSql.trim().replaceAll("'","`").replaceAll("\"","`").replaceAll("，",",").toLowerCase();
         //deal with java string copy \n"
         tableSql = tableSql.trim().replaceAll("\\\\n`","").replaceAll("\\+","").replaceAll("``","`").replaceAll("\\\\","");
+        
+        // 获取表名==============================================================================
+        
         // table Name
         String tableName = null;
         if (tableSql.contains("TABLE") && tableSql.contains("(")) {
@@ -71,6 +74,10 @@ public class TableParseUtil {
             //优化对likeu.members这种命名的支持
             tableName=tableName.substring(tableName.indexOf(".")+1);
         }
+        
+        
+     // 获取类名和注释==============================================================================
+        
         // class Name
         String className = StringUtils.upperCaseFirst(StringUtils.underlineToCamelCase(tableName));
         if (className.contains("_")) {
@@ -84,9 +91,20 @@ public class TableParseUtil {
         if (tableSql.contains("comment=")||tableSql.contains("comment on table")) {
             String classCommentTmp = (tableSql.contains("comment="))?
                     tableSql.substring(tableSql.lastIndexOf("comment=")+8).trim():tableSql.substring(tableSql.lastIndexOf("comment on table")+17).trim();
+                    
             if (classCommentTmp.contains("`")) {
-                classCommentTmp = classCommentTmp.substring(classCommentTmp.indexOf("`")+1);
-                classCommentTmp = classCommentTmp.substring(0,classCommentTmp.indexOf("`"));
+            	
+            	// 修改为 获取最后一个括号内的内容
+            	Pattern p1=Pattern.compile("`(.*?)`");
+            	Matcher m = p1.matcher(classCommentTmp);
+				ArrayList<String> list = new ArrayList<String>();
+				while (m.find()) {
+				     list.add(m.group());
+				}
+				classCommentTmp = list.get(list.size()-1).replace("`", "");
+            	// 修改完毕
+//                classCommentTmp = classCommentTmp.substring(classCommentTmp.indexOf("`")+1);
+//                classCommentTmp = classCommentTmp.substring(0,classCommentTmp.indexOf("`"));
                 classComment = classCommentTmp;
             }else{
                 //非常规的没法分析
@@ -98,6 +116,11 @@ public class TableParseUtil {
         }
         //如果备注跟;混在一起，需要替换掉
         classComment=classComment.replaceAll(";","");
+        
+        
+     // 获取字段==============================================================================
+        
+        
         // field List
         List<FieldInfo> fieldList = new ArrayList<FieldInfo>();
 
@@ -119,7 +142,7 @@ public class TableParseUtil {
             }
         }
         //2018-10-18 zhengkai 新增支持double(10, 2)等类型中有英文逗号的特殊情况
-        String commentPattenStr2="\\`(.*?)\\`";
+        String commentPattenStr2="\\`(.*?)\\`";  // 找小引号里面的内容
         Matcher matcher2 = Pattern.compile(commentPattenStr2).matcher(fieldListTmp);
         while(matcher2.find()){
             String commentTmp2 = matcher2.group();
@@ -129,7 +152,7 @@ public class TableParseUtil {
             }
         }
         //2018-10-18 zhengkai 新增支持double(10, 2)等类型中有英文逗号的特殊情况
-        String commentPattenStr3="\\((.*?)\\)";
+        String commentPattenStr3="\\((.*?)\\)"; // 找所有括号内的内容
         Matcher matcher3 = Pattern.compile(commentPattenStr3).matcher(fieldListTmp);
         while(matcher3.find()){
             String commentTmp3 = matcher3.group();
@@ -154,7 +177,7 @@ public class TableParseUtil {
                         &&!(columnLine.contains("primary ")&&columnLine.indexOf("storage")+3>columnLine.indexOf("("))
                         &&!columnLine.contains("pctincrease")
                         &&!columnLine.contains("buffer_pool")&&!columnLine.contains("tablespace")
-                        &&!(columnLine.contains("primary ")&&i>3));
+                        &&!(columnLine.contains("primary ")&&i>3));  // 排除异常的非必须字段描述的行
                 if (specialFlag){
                     //如果是oracle的number(x,x)，可能出现最后分割残留的,x)，这里做排除处理
                     if(columnLine.length()<5) {continue;}
@@ -183,27 +206,146 @@ public class TableParseUtil {
                     columnLine = columnLine.substring(columnLine.indexOf("`")+1).trim();
                     // int(11) NOT NULL AUTO_INCREMENT COMMENT '用户ID',
                     String fieldClass = Object.class.getSimpleName();
+                    String oracleFieldType = "";
+                    String mysqlFieldType = "";
+                    String sqlservFieldType = "";
+                    
+                    int kh1 = columnLine.indexOf("(");// 第一个括号
+                    if (columnLine.indexOf("identity") != -1) { // 排除sqlserver自增，有括号的情况
+                    	kh1 = -1;
+					}
+                    int kh2 = columnLine.indexOf(")",kh1+1);// 第二个括号
+                    
+                    int kg1 = columnLine.indexOf(" ");// 第一个空格
+                    int kg2 = columnLine.indexOf(" ",kg1+1);// 第二个空格 oracle没有第二个空格
+                    
+                    if (kg2 == -1) {  // 没有第二个空格
+						if (kh1 != -1) { // 有第一个括号 就用第一个括号分割
+							kg2 = columnLine.indexOf(")",kg1)+1;
+						}else { // 没有就直接第二个位置就在末尾
+							kg2 = columnLine.length();
+						}
+					}
+                    
+                    
+                    String zdType = "";// 字段类型 包括长度
+                    String zdLength = "";// 字段长度 括号和数字
+                    
+                    if (kg1!=-1 && kg2!=-1 ) {
+                    	zdType = columnLine.substring(kg1+1, kg2); // 字段类型 包括长度
+                    	
+//                    	System.err.println(zdType);
+					}
+                    
+                    if ( kh1!=-1 && kh2!=-1 ) {
+                    	zdLength = columnLine.substring(kh1, kh2+1); // 字段长度 括号和数字
+//                    	System.err.println(zdLength);
+						
+					}
+                    
                     //2018-9-16 zhengk 补充char/clob/blob/json等类型，如果类型未知，默认为String
                     //2018-11-22 lshz0088 处理字段类型的时候，不严谨columnLine.contains(" int") 类似这种的，可在前后适当加一些空格之类的加以区分，否则当我的字段包含这些字符的时候，产生类型判断问题。
                     //2020-05-03 MOSHOW.K.ZHENG 优化对所有类型的处理
-                    if (columnLine.contains(" tinyint") ) {
+                    if (columnLine.contains(" tinyint") ) {  // mysql和sqlserver有
                         //20191115 MOSHOW.K.ZHENG 支持对tinyint的特殊处理
                         fieldClass=tinyintTransType;
+                        oracleFieldType = "NUMBER";
+                        mysqlFieldType = zdType;
+                        sqlservFieldType = zdType;
                     }
-                    else if (columnLine.contains(" int") || columnLine.contains(" smallint")) {
+                    else if (columnLine.contains(" int") || columnLine.contains(" smallint")) { // mysql和sqlserver有
                         fieldClass = Integer.class.getSimpleName();
-                    } else if (columnLine.contains(" bigint")) {
+                        oracleFieldType = "NUMBER"+zdLength;
+                        mysqlFieldType = zdType;
+                        sqlservFieldType = zdType;// int/smallint 不能指定长度 sqlserver
+                        String[] split = sqlservFieldType.split("\\(");
+                        sqlservFieldType = split[0];
+                        
+                    } else if (columnLine.contains(" bigint")) {// mysql和sqlserver有
                         fieldClass = Long.class.getSimpleName();
-                    } else if (columnLine.contains(" float")) {
+                        oracleFieldType = "NUMBER"+zdLength;
+                        mysqlFieldType = zdType;
+                        sqlservFieldType = zdType;
+                    } else if (columnLine.contains(" float")) {  // 都有
                         fieldClass = Float.class.getSimpleName();
+                        oracleFieldType = zdType;
+                        mysqlFieldType = zdType;
+                        sqlservFieldType = zdType;
                     } else if (columnLine.contains(" double")) {
                         fieldClass = Double.class.getSimpleName();
+                        oracleFieldType = "NUMBER"+zdLength;
+                        mysqlFieldType = zdType;
+                        sqlservFieldType = zdType;
                     } else if (columnLine.contains(" time") || columnLine.contains(" date") || columnLine.contains(" datetime") || columnLine.contains(" timestamp")) {
                         fieldClass = Date.class.getSimpleName();
-                    } else if (columnLine.contains(" varchar") || columnLine.contains(" text")|| columnLine.contains(" char")
+                        
+                        if (columnLine.contains(" datetime")) { // oracle仅没有dateTime和2
+                        	oracleFieldType = "DATE";
+						}else {
+							oracleFieldType = zdType.toUpperCase();
+						}
+                        
+                        if (columnLine.contains(" datetime2")) { // mysql没有dateTime2
+                        	mysqlFieldType = "DATETIME";
+                        }else {
+                        	mysqlFieldType = zdType;
+                        }
+                        sqlservFieldType = zdType;
+                    } else if (columnLine.contains(" nvarchar") || columnLine.contains(" varchar") || columnLine.contains(" text")|| columnLine.contains(" char")
                             || columnLine.contains(" clob")||columnLine.contains(" blob")||columnLine.contains(" json")) {
                         fieldClass = String.class.getSimpleName();
+                        
+                        if (columnLine.contains(" varchar2")) { // oracle还有varchar2，没有text、json
+                            oracleFieldType = zdType;
+                            mysqlFieldType = "varchar"+zdLength;
+                            sqlservFieldType = "nvarchar"+zdLength;
+						} else if(columnLine.contains(" text")){
+							oracleFieldType = "varchar2"+zdLength;
+							mysqlFieldType = zdType;
+	                        sqlservFieldType = zdType;
+							
+						} else if(columnLine.contains(" json")){
+							oracleFieldType = "CLOB";
+							mysqlFieldType = zdType;
+							sqlservFieldType = "nvarchar"+"(500)";
+							
+						} else if(columnLine.contains(" clob")){
+							oracleFieldType = zdType;
+							mysqlFieldType = "varchar"+"(500)";
+							sqlservFieldType = "nvarchar"+"(500)";
+							
+						} else if(columnLine.contains(" nvarchar")){
+							oracleFieldType = "varchar2"+zdLength;
+							mysqlFieldType = "varchar"+zdLength;
+							sqlservFieldType = zdType;
+							
+						} else if(columnLine.contains(" blob")){
+							oracleFieldType = zdType;
+							mysqlFieldType = zdType;
+							sqlservFieldType = "nvarchar"+"(1000)";
+						}else {
+							oracleFieldType = zdType;
+							mysqlFieldType = zdType;
+							sqlservFieldType = zdType;
+						}
+                        
+                        // oracle还有varchar2，没有text、json  ↑
+                        // mysql 没有clob、varchar2
+                        // sqlserver 还有nvarchar，没有clob、blob、json、varchar2
+                        
                     } else if (columnLine.contains(" decimal")||columnLine.contains(" number")) {
+                    	
+                    	// 只有oracle有number，其他两个都没有。题外话：oracle的这两个是一样的。
+                    	if (columnLine.contains(" number")) {
+							oracleFieldType = zdType.toUpperCase();
+							mysqlFieldType = "decimal"+zdLength;
+							sqlservFieldType = "decimal"+zdLength;
+						}else {
+							oracleFieldType = zdType.toUpperCase();
+							mysqlFieldType = zdType.toUpperCase();
+							sqlservFieldType = zdType.toUpperCase();
+						}
+                    	
                         //2018-11-22 lshz0088 建议对number类型增加int，long，BigDecimal的区分判断
                         //如果startKh大于等于0，则表示有设置取值范围
                         int startKh=columnLine.indexOf("(");
@@ -233,13 +375,18 @@ public class TableParseUtil {
                                 fieldClass = BigDecimal.class.getSimpleName();
                             }
                         }else{
-                            fieldClass = BigDecimal.class.getSimpleName();
+                            fieldClass = Long.class.getSimpleName(); // 没写范围就设置为Long oracle，mysql没有测试
                         }
-                    } else if (columnLine.contains(" boolean")) {
+                    } else if (columnLine.contains(" boolean")) { // 三大数据库没有这个类型
                         //20190910 MOSHOW.K.ZHENG 新增对boolean的处理（感谢@violinxsc的反馈）以及修复tinyint类型字段无法生成boolean类型问题（感谢@hahaYhui的反馈）
                         fieldClass = Boolean.class.getSimpleName();
                     } else {
                         fieldClass = String.class.getSimpleName();
+                        
+						oracleFieldType = zdType.toUpperCase();
+						mysqlFieldType = zdType.toUpperCase();
+						sqlservFieldType = zdType.toUpperCase();
+                        
                     }
 
                     // field comment，MySQL的一般位于field行，而pgsql和oralce多位于后面。
@@ -275,14 +422,54 @@ public class TableParseUtil {
                         fieldComment = columnName;
                     }
 
+                    // not null声明
+                    if (columnLine.contains("not null")) {
+                    	oracleFieldType+=" not null";
+                    	mysqlFieldType+=" not null";
+                    	sqlservFieldType+=" not null";
+                    }
+                    // 自增声明，只有mysql和sqlserver有，oracle 11没有，需要自行建立序列还有触发器
+                    if (columnLine.contains("auto_increment")) {
+                    	mysqlFieldType+=" auto_increment";
+                    	sqlservFieldType+=" identity(1,1)";
+					}else if (columnLine.contains("identity")) {
+                    	mysqlFieldType+=" auto_increment";
+                    	sqlservFieldType+=" identity(1,1)";
+					}
+                    // 主键声明 - 列上
+                    if (columnLine.contains("primary key")) {
+                    	sqlservFieldType+=" primary key";
+                    	mysqlFieldType+=" primary key";
+					}
+                    
                     FieldInfo fieldInfo = new FieldInfo();
-                    fieldInfo.setColumnName(columnName);
+                    
+                    fieldInfo.setOracleFieldType(oracleFieldType);
+                    fieldInfo.setMysqlFieldType(mysqlFieldType);
+                    fieldInfo.setSqlservFieldType(sqlservFieldType);
+                    
+                    fieldInfo.setColumnName(columnName.toUpperCase()); // 转换为大写
                     fieldInfo.setFieldName(fieldName);
                     fieldInfo.setFieldClass(fieldClass);
                     fieldInfo.setFieldComment(fieldComment);
 
                     fieldList.add(fieldInfo);
-                }
+                    // 主键声明 - 在约束上情况
+                }else if(columnLine.contains("primary key (") || columnLine.contains("primary key(")){
+                    int yh1 = columnLine.indexOf("`");// 第一个引号
+                    int yh2 = columnLine.indexOf("`",yh1+1);// 第二个引号
+                    String substring = columnLine.substring(yh1+1, yh2); // 字段类型 包括长度
+                    for (int j = 0; j < fieldList.size(); j++) {
+                    	FieldInfo fieldInfo = fieldList.get(j);
+						if (fieldInfo.getColumnName().equals(substring.toUpperCase())) {
+							String mysqlFieldType = fieldInfo.getMysqlFieldType();
+							String sqlservFieldType = fieldInfo.getSqlservFieldType();
+							fieldInfo.setMysqlFieldType(mysqlFieldType+=" primary key");
+							fieldInfo.setSqlservFieldType(sqlservFieldType+=" primary key");
+							break;
+						}
+					}
+				}
             }
         }
 
@@ -291,7 +478,7 @@ public class TableParseUtil {
         }
 
         ClassInfo codeJavaInfo = new ClassInfo();
-        codeJavaInfo.setTableName(tableName);
+        codeJavaInfo.setTableName(tableName.toUpperCase()); // 转换为大写
         codeJavaInfo.setClassName(className);
         codeJavaInfo.setClassComment(classComment);
         codeJavaInfo.setFieldList(fieldList);

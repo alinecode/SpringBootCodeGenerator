@@ -88,7 +88,7 @@
                 success: function (data) {
                     if (data.code === 200) {
                         codeData = data.data;
-                        genCodeArea.setValue(codeData.beetlentity);
+                        genCodeArea.setValue(codeData.oracleddl);
                         genCodeArea.setSize('auto', 'auto');
                         $.toast("√ 代码生成成功");
                         //添加历史记录
@@ -203,10 +203,11 @@
 
     <div class="container">
         <nav class="navbar navbar-dark bg-primary btn-lg">
-            <a class="navbar-brand" href="http://www.bejson.com">BeJSON在线工具站</a>
+            <!--  <a class="navbar-brand" href="">kkk</a> -->
+            <h2>Spring Boot Code Generator!</h2>
             <ul class="nav navbar-nav">
                 <li class="nav-item active">
-                    <a class="nav-link" href="http://zhengkai.blog.csdn.net">zhengkai.blog.csdn.net</a>
+                 <!--    <a class="nav-link" href="http://zhengkai.blog.csdn.net">zhengkai.blog.csdn.net</a> -->
                 </li>
             </ul>
         </nav>
@@ -216,28 +217,28 @@
 <div class="jumbotron">
     <div class="container">
         <h2>Spring Boot Code Generator!</h2>
-        <p class="lead">
+         <!--  <p class="lead">
             √基于SpringBoot2+Freemarker的<a class="lead" href="https://github.com/moshowgame/SpringBootCodeGenerator">代码生成器</a><br>
             √以解放双手为目的，减少大量重复的CRUD工作<br>
             √支持mysql/oracle/pgsql三大数据库<br>
             √用DDL-SQL语句生成JPA/JdbcTemplate/Mybatis/MybatisPlus/BeetlSQL相关代码。<br>
             如果发现有SQL语句不能识别，请<a href="https://github.com/moshowgame/SpringBootCodeGenerator/issues">留言</a>，同时欢迎大家提<a href="https://github.com/moshowgame/SpringBootCodeGenerator/pulls">PR</a>和<a href="#" id="donate1">赞赏</a>，谢谢！<a id="version" href="#">查看版本</a>
-        </p>
+        </p> -->
         <div id="donate" class="container" show="no"></div>
         <hr>
         <div class="input-group mb-3">
             <div class="input-group-prepend">
                 <span class="input-group-text">作者名称</span>
             </div>
-            <input type="text" class="form-control" id="authorName" name="authorName" value="zhengkai.blog.csdn.net">
+            <input type="text" class="form-control" id="authorName" name="authorName" value="21">
             <div class="input-group-prepend">
                 <span class="input-group-text">返回封装</span>
             </div>
-            <input type="text" class="form-control" id="returnUtil" name="returnUtil" value="ReturnT">
+            <input type="text" class="form-control" id="returnUtil" name="returnUtil" value="Rdc">
             <div class="input-group-prepend">
                 <span class="input-group-text">包名路径</span>
             </div>
-            <input type="text" class="form-control" id="packageName" name="packageName" value="com.softdev.system">
+            <input type="text" class="form-control" id="packageName" name="packageName" value="com.xx.xxx">
         </div>
         <div class="input-group mb-3">
             <div class="input-group-prepend">
@@ -401,6 +402,21 @@ CREATE TABLE 'userinfo' (
                 </div>
             </div>
         </div>
+        <div class="row" style="margin-top: 10px;">
+            <div class="btn-toolbar col-md-5" role="toolbar" aria-label="Toolbar with button groups">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <div class="btn btn-secondary disabled setWidth" id="btnGroupAddon">DDL</div>
+                    </div>
+                </div>
+                <div class="btn-group" role="group" aria-label="First group">
+                    <button type="button" class="btn btn-default generator" id="oracleddl">oracleddl</button>
+                    <button type="button" class="btn btn-default generator" id="sqlserverddl">sqlserverddl</button>
+                    <button type="button" class="btn btn-default generator" id="mysqlddl">mysqlddl</button>
+                </div>
+            </div>
+        </div>
+        
         <hr>
         <textarea id="genCodeArea" class="form-control btn-lg" ></textarea>
     </div>

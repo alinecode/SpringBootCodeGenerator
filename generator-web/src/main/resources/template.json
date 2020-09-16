@@ -119,6 +119,24 @@
     "group": "beetlsql",
     "description": "beetlcontroller"
   },
+   {
+    "id": "53",
+    "name": "oracleddl",
+    "group": "beetlsql",
+    "description": "oracleddl"
+  },
+   {
+    "id": "54",
+    "name": "sqlserverddl",
+    "group": "beetlsql",
+    "description": "sqlserverddl"
+  },
+   {
+    "id": "55",
+    "name": "mysqlddl",
+    "group": "beetlsql",
+    "description": "mysqlddl"
+  },
   {
     "id": "60",
     "name": "pluscontroller",
